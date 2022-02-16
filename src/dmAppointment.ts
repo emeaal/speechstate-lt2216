@@ -148,7 +148,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 src: (context, event) => kbRequest(context.text),
                 onDone: {
                     target: 'success',
-                    actions: assign({ title: (context, event) => "with " + event.data.Heading, snippet: (context, event) => event.data.AbstractText })
+                    actions: assign({ title: (context, event) => "meeting with " + event.data.Heading, snippet: (context, event) => event.data.AbstractText })
                 },
                 onError: {
                     target: 'failure',
