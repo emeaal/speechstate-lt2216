@@ -35,8 +35,20 @@ interface SDSContext {
     tdmExpectedAlternatives: any;
     azureAuthorizationToken: string;
     audioCtx: any;
+    snippet: any;
 
-    title: string;
+    pos: string;
+    neg: string;
+
+    title: any;
+    time: string;
+    day: string;
+    person: string;
+    text: string;
+
+    celeb: string;
+    meet: string;
+    username: string;
 }
 
 type SDSEvent =
