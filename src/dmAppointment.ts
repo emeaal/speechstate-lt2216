@@ -11,8 +11,9 @@ const grammar: { [index: string]: { title?: string, day?: string, time?: string 
     "Dinner.": { title: "Dinner" },
     "Business.": { title: "Business meeting" },
     "Study session.": { title: "Study session" },
-    "Walk": { title: "Walk" },
-    "Language course": {title: "Language course" },
+    "Walk.": { title: "Walk" },
+    "Language course.": {title: "Language course" },
+    "Programming course.": { title: "Programming course"},
     "Zoom meeting": {title: "Zoom meeting" },
     "Monday": { title: "Monday" },
     "Tuesday.": { day: "Tuesday" },
@@ -21,6 +22,7 @@ const grammar: { [index: string]: { title?: string, day?: string, time?: string 
     "Friday": { day: "Friday" },
     "Saturday": { day: "Saturday" },
     "Sunday.": { day: "Sunday" },
+    "Tomorrow.": { day: "tomorrow"},
     "10": { time: "10" },
     "11": { time: "11 " },
     "12": { time: "12 " },
@@ -45,6 +47,24 @@ const grammar: { [index: string]: { title?: string, day?: string, time?: string 
     "At 7:00": { time: "7" },
     "At 8:00": { time: "8" },
     "At 9:00": { time: "9" },
+    "At 1:00 PM.": { time: "1"},
+    "At 2:00 PM.": { time: "2"},
+    "At 3:00 PM.": { time: "3"},
+    "At 4:00 PM.": { time: "4"},
+    "At 5:00 PM.": { time: "5"},
+    "At 6:00 PM.": { time: "6"},
+    "At 7:00 PM.": { time: "7"},
+    "At 8:00 PM.": { time: "8"},
+    "At 9:00 PM.": { time: "9"},
+    "At 10:00 PM.": { time: "10"},
+    "At 11:00 PM.": { time: "11"},
+    "At 6:00 AM.": { time: "6"},
+    "At 7:00 AM.": { time: "7"},
+    "At 8:00 AM.": { time: "8"},
+    "At 9:00 AM.": { time: "9"},
+    "At 10:00 AM.": { time: "10"},
+    "At 11:00 AM.": { time: "11"},
+    "At noon": { time: "noon"},
 }
 
 const answer: { [index: string]: { pos?: string, neg?: string} } = {
@@ -59,9 +79,11 @@ const answer: { [index: string]: { pos?: string, neg?: string} } = {
     "Yes please.": { pos: "Yes" },
 }
 
-const menugrammar: { [index: string]: {meet?: string }} = {
+const menugrammar: { [index: string]: {meet?: string, celeb?: string }} = {
     "Create a meeting.": { meet: "Meeting" },
     "I want to create a meeting.": { meet: "Meeting" },
+    "Meet a celebrity": { celeb: "celebrity" },
+    "Celebrity": { celeb: "celebrity" },
 }
 
 const kbRequest = (text: string) =>
@@ -113,12 +135,9 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     {
                         target: 'testermenu',
-                        actions: assign({ text: (context) => context.recResult[0].utterance })
+                        actions: assign({ celeb: (context) => context.recResult[0].utterance })
                     },
-                    {
-                        target: '.nomatch'
-                    },
-                ],
+                    ],
                 TIMEOUT: '.prompt'
             },
             states: {
@@ -136,23 +155,19 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 ask: {
                     entry: send('LISTEN'),
                 },
-                nomatch: {
-                    entry: say("Sorry, what did you say?"),
-                    on: { ENDSPEECH: 'ask' }
-                }
             }
         },
         testermenu: {
             invoke: {
                 id: 'duck',
-                src: (context, event) => kbRequest(context.text),
+                src: (context, event) => kbRequest(context.celeb),
                 onDone: {
                     target: 'success',
-                    actions: assign({ title: (context, event) => "meeting with " + event.data.Heading, snippet: (context, event) => event.data.AbstractText })
+                    actions: assign({ title: (context, event) => "meeting with " + event.data.Heading, snippet: (context, event) => event.data.AbstractText }),
                 },
                 onError: {
                     target: 'failure',
-                }
+                },
             },
         },
         success: {
@@ -165,7 +180,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
         failure: {
             entry: send((context) => ({
                 type: 'SPEAK',
-                value: `${context.snippet} couldn't be found.`,
+                value: `${context.celeb} couldn't be found.`,
             })),
             on: { ENDSPEECH: 'mainmenu' }
         },
