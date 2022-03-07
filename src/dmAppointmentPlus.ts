@@ -91,15 +91,19 @@ const menugrammar: { [index: string]: {meet?: string, celeb?: string }} = {
 const kbRequest = (text: string) =>
     fetch(new Request(`https://cors.eu.org/https://api.duckduckgo.com/?q=${text}&format=json&skip_disambig=1&kl=us_en`)).then(data => data.json())
 
-const confid_threshold = 0.6 // confidence threshold set to 0.6, if below this, speech wont be recognized
+const confid_threshold = 0.6  // confidence threshold set to 0.6, if below this, speech wont be recognized
 // maybe look into number on threshold
 
 //const increment = (context: { count: number; }) => context.count + 1;
+
+const reprompting = (context: any) => {
+    return context.counter.length < 3
+}
   
 
 export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
     initial: 'idle',
-    entry: assign({counter: (context) => context.counter=0}),
+    entry: assign({counter: (context) => context.counter = 0}),
     states: {
         idle: {
             on: {
@@ -129,7 +133,6 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 },
                 hello: {
                     initial: 'prompt',
-                    entry: assign({counter: (context) => context.counter = 1}),
                     on: {
                         RECOGNISED: [
                             {
@@ -141,7 +144,12 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 actions: assign({ username: (context) => context.recResult[0].utterance }) 
                             },
                             ],
-                        TIMEOUT: '.prompt'
+                        TIMEOUT: [
+                            {
+                                target: '.prompt',
+                                cond: reprompting,
+                            },
+                        ],
                         },
                     states: {
                         prompt: {
@@ -169,8 +177,6 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             {
                                 target: 'searchceleb',
                                 cond: (context) => "celeb" in (menugrammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
-                                //cond: (context) => context.recResult[0].confidence > confid_threshold,
-                                //cond: (context) => "celeb" in (menugrammar[context.recResult[0].utterance] || {}),
                                 actions: assign({ celeb: (context) => menugrammar[context.recResult[0].utterance].celeb!})
                             },
                             {
@@ -188,7 +194,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             on: { ENDSPEECH: 'question' },
                         },
                         question: {
-                            entry: say("What do you want to do?"),
+                            entry: [say("What do you want to do?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask'}
                         },
                         ask: {
