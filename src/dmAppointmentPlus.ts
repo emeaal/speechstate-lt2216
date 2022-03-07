@@ -133,6 +133,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 },
                 hello: {
                     initial: 'prompt',
+                    entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
                             {
@@ -147,7 +148,11 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         TIMEOUT: [
                             {
                                 target: '.prompt',
-                                cond: reprompting,
+                                cond: (context) => context.counter < 3,
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => context.counter > 3,
                             },
                         ],
                         },
@@ -163,6 +168,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                 mainmenu: {
                     initial: 'prompt',
+                    entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
                             {
@@ -183,7 +189,16 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 target: '.nomatch'
                             }
                             ],
-                        TIMEOUT: '.prompt'
+                        TIMEOUT: [
+                            {
+                                target: '.prompt',
+                                cond: (context) => context.counter < 3,
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => context.counter > 3,
+                            },
+                        ],
                     },
                     states: {
                         prompt: {
@@ -208,6 +223,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 },
                 searchceleb: {
                     initial: 'prompt',
+                    entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
                             {
@@ -220,7 +236,16 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 actions: assign({ celeb: (context) => context.recResult[0].utterance })
                             },
                         ],
-                        TIMEOUT: '.prompt'
+                        TIMEOUT: [
+                            {
+                                target: '.prompt',
+                                cond: (context) => context.counter < 3,
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => context.counter > 3,
+                            },
+                        ],
                     },
                     states: {
                         prompt: {
@@ -261,6 +286,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 },
                 doyou: {
                     initial: 'prompt',
+                    entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
                             {
@@ -281,7 +307,16 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 target: '.nomatch'
                             }
                         ],
-                        TIMEOUT: '.prompt'
+                        TIMEOUT: [
+                            {
+                                target: '.prompt',
+                                cond: (context) => context.counter < 3,
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => context.counter > 3,
+                            },
+                        ],
                     },
                     states: {
                         prompt: {
@@ -306,6 +341,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 },
                 regards: {
                     initial: 'prompt',
+                    entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
                             {
@@ -321,7 +357,16 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 target: '.nomatch'
                             }
                         ],
-                        TIMEOUT: '.prompt'
+                        TIMEOUT: [
+                            {
+                                target: '.prompt',
+                                cond: (context) => context.counter < 3,
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => context.counter > 3,
+                            },
+                        ],
                     },
                     states: {
                         prompt: {
@@ -339,6 +384,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 },
                 day: {
                     initial: 'prompt',
+                    entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
                             {
@@ -354,7 +400,16 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 target: '.nomatch'
                             }
                         ],
-                        TIMEOUT: '.prompt'
+                        TIMEOUT: [
+                            {
+                                target: '.prompt',
+                                cond: (context) => context.counter < 3,
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => context.counter > 3,
+                            },
+                        ],
                     },
                     states: {
                         prompt: {
@@ -372,6 +427,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 },
                 durance: {
                     initial: 'prompt',
+                    entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
                             {
@@ -392,7 +448,16 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 target: '.nomatch'
                             }
                         ],
-                        TIMEOUT: '.prompt'
+                        TIMEOUT: [
+                            {
+                                target: '.prompt',
+                                cond: (context) => context.counter < 3,
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => context.counter > 3,
+                            },
+                        ],
                     },
                     states: {
                         prompt: {
@@ -410,6 +475,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 },
                 time: {
                     initial: 'prompt',
+                    entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
                             {
@@ -425,7 +491,16 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 target: '.nomatch'
                             }
                         ],
-                        TIMEOUT: '.prompt'
+                        TIMEOUT: [
+                            {
+                                target: '.prompt',
+                                cond: (context) => context.counter < 3,
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => context.counter > 3,
+                            },
+                        ],
                     },
                     states: {
                         prompt: {
@@ -443,6 +518,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 },
                 creationwholeday: {
                     initial: 'prompt',
+                    entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
                             {
