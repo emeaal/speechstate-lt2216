@@ -92,6 +92,8 @@ const menugrammar: { [index: string]: {meet?: string, celeb?: string }} = {
 const kbRequest = (text: string) =>
     fetch(new Request(`https://cors.eu.org/https://api.duckduckgo.com/?q=${text}&format=json&skip_disambig=1&kl=us_en`)).then(data => data.json())
 
+const confid_threshold = 0.6
+
 export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
     initial: 'idle',
     states: {
@@ -102,20 +104,20 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
         },
         init: {
             on: {
-                TTS_READY: 'Appointment',
-                CLICK: 'Appointment',
+                TTS_READY: 'createAppointment',
+                CLICK: 'createAppointment',
             }
         },
         getHelp: {
             initial: 'helpmessage',
             states: {
                 helpmessage: {
-                    entry: say("You can either create a title with a name of your choice, or ask for a celebrity"),
-                    on: { ENDSPEECH: '#root.dm.Appointment.hist' }
+                    entry: say("This is a help message for those who need help."),
+                    on: { ENDSPEECH: '#root.dm.createAppointment.hist' }
                 }
             }
         },
-        Appointment: {
+        createAppointment: {
             initial: 'hello',
             states: {
                 hist: {
@@ -131,7 +133,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             },
                             {
                                 target: 'mainmenu',
-                                actions: assign({ username: (context) => context.recResult[0].utterance })
+                                actions: assign({ username: (context) => context.recResult[0].utterance }) 
                             },
                             ],
                         TIMEOUT: '.prompt'
@@ -151,8 +153,13 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     on: {
                         RECOGNISED: [
                             {
+                                target: '#root.dm.getHelp',
+                                cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
+                            },
+                            {
                                 target: 'welcome',
-                                cond: (context) => "meet" in (menugrammar[context.recResult[0].utterance] || {}),
+                                //cond: (context) => "meet" in (menugrammar[context.recResult[0].utterance] || {}),
+                                cond: (context) => context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ meet: (context) => menugrammar[context.recResult[0].utterance].meet!})
                             },
                             {
@@ -191,6 +198,10 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     initial: 'prompt',
                     on: {
                         RECOGNISED: [
+                            {
+                                target: '#root.dm.getHelp',
+                                cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
+                            },
                             {
                                 target: 'testermenu',
                                 actions: assign({ celeb: (context) => context.recResult[0].utterance })
@@ -240,6 +251,10 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     on: {
                         RECOGNISED: [
                             {
+                                target: '#root.dm.getHelp',
+                                cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
+                            },
+                            {
                                 target: 'day',
                                 cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}),
                                 actions: assign({ pos: (context) => answer[context.recResult[0].utterance].pos! })
@@ -281,6 +296,10 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     on: {
                         RECOGNISED: [
                             {
+                                target: '#root.dm.getHelp',
+                                cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
+                            },
+                            {
                                 target: 'day',
                                 cond: (context) => "title" in (grammar[context.recResult[0].utterance] || {}),
                                 actions: assign({ title: (context) => grammar[context.recResult[0].utterance].title! })
@@ -310,6 +329,10 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     on: {
                         RECOGNISED: [
                             {
+                                target: '#root.dm.getHelp',
+                                cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
+                            },
+                            {
                                 target: 'durance',
                                 cond: (context) => "day" in (grammar[context.recResult[0].utterance] || {}),
                                 actions: assign({ day: (context) => grammar[context.recResult[0].utterance].day! })
@@ -338,6 +361,10 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     initial: 'prompt',
                     on: {
                         RECOGNISED: [
+                            {
+                                target: '#root.dm.getHelp',
+                                cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
+                            },
                             {
                                 target: 'creationwholeday',
                                 cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}),
@@ -373,6 +400,10 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     on: {
                         RECOGNISED: [
                             {
+                                target: '#root.dm.getHelp',
+                                cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
+                            },
+                            {
                                 target: 'creation_with_time',
                                 cond: (context) => "time" in (grammar[context.recResult[0].utterance] || {}),
                                 actions: assign({ time: (context) => grammar[context.recResult[0].utterance].time! })
@@ -401,6 +432,10 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     initial: 'prompt',
                     on: {
                         RECOGNISED: [
+                            {
+                                target: '#root.dm.getHelp',
+                                cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
+                            },
                             {
                                 target: 'info',
                                 cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}),
@@ -439,6 +474,10 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     on: {
                         RECOGNISED: [
                             {
+                                target: '#root.dm.getHelp',
+                                cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
+                            },
+                            {
                                 target: 'info',
                                 cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}),
                                 actions: assign({ pos: (context) => answer[context.recResult[0].utterance].pos! })
@@ -476,9 +515,10 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         type: 'SPEAK',
                         value: `Your meeting has been created.`
                     })),
-                    on: { ENDSPEECH: 'init' }
+                    on: { ENDSPEECH: '#root.dm.init' }
                 }
             },
         },
     },
 })
+
