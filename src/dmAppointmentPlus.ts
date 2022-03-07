@@ -91,7 +91,8 @@ const menugrammar: { [index: string]: {meet?: string, celeb?: string }} = {
 const kbRequest = (text: string) =>
     fetch(new Request(`https://cors.eu.org/https://api.duckduckgo.com/?q=${text}&format=json&skip_disambig=1&kl=us_en`)).then(data => data.json())
 
-const confid_threshold = 0.6
+const confid_threshold = 0.6 // confidence threshold set to 0.6, if below this, speech wont be recognized
+// maybe look into number on threshold
 
 //const increment = (context: { count: number; }) => context.count + 1;
   
