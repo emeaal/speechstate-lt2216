@@ -1,5 +1,4 @@
-import { MachineConfig, send, Action, assign } from "xstate";
-
+import { MachineConfig, send, Action, assign, Machine } from "xstate";
 
 function say(text: string): Action<SDSContext, SDSEvent> {
     return send((_context: SDSContext) => ({ type: "SPEAK", value: text }))
@@ -94,8 +93,12 @@ const kbRequest = (text: string) =>
 
 const confid_threshold = 0.6
 
+//const increment = (context: { count: number; }) => context.count + 1;
+  
+
 export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
     initial: 'idle',
+    entry: assign({counter: (context) => context.counter=0}),
     states: {
         idle: {
             on: {
@@ -108,12 +111,12 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 CLICK: 'createAppointment',
             }
         },
-        getHelp: {
+        getHelp: { // can get called from any part of "createAppointment"
             initial: 'helpmessage',
             states: {
                 helpmessage: {
                     entry: say("This is a help message for those who need help."),
-                    on: { ENDSPEECH: '#root.dm.createAppointment.hist' }
+                    on: { ENDSPEECH: '#root.dm.createAppointment.hist' } // returns to same state as before help was called
                 }
             }
         },
@@ -125,6 +128,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 },
                 hello: {
                     initial: 'prompt',
+                    entry: assign({counter: (context) => context.counter = 1}),
                     on: {
                         RECOGNISED: [
                             {
@@ -140,7 +144,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         },
                     states: {
                         prompt: {
-                            entry: say("What is your username?"),
+                            entry: [say("What is your username?"), assign({counter: (context) => context.counter +1})],
                             on: { ENDSPEECH: 'ask' }
                             },
                             ask: {
@@ -158,13 +162,14 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             },
                             {
                                 target: 'welcome',
-                                //cond: (context) => "meet" in (menugrammar[context.recResult[0].utterance] || {}),
-                                cond: (context) => context.recResult[0].confidence > confid_threshold,
+                                cond: (context) => "meet" in (menugrammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ meet: (context) => menugrammar[context.recResult[0].utterance].meet!})
                             },
                             {
                                 target: 'searchceleb',
-                                cond: (context) => "celeb" in (menugrammar[context.recResult[0].utterance] || {}),
+                                cond: (context) => "celeb" in (menugrammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
+                                //cond: (context) => context.recResult[0].confidence > confid_threshold,
+                                //cond: (context) => "celeb" in (menugrammar[context.recResult[0].utterance] || {}),
                                 actions: assign({ celeb: (context) => menugrammar[context.recResult[0].utterance].celeb!})
                             },
                             {
@@ -204,6 +209,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             },
                             {
                                 target: 'testermenu',
+                                cond: (context) => context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ celeb: (context) => context.recResult[0].utterance })
                             },
                         ],
@@ -256,12 +262,12 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             },
                             {
                                 target: 'day',
-                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}),
+                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ pos: (context) => answer[context.recResult[0].utterance].pos! })
                             },
                             {
                                 target: 'mainmenu',
-                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {}),
+                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({neg: (context) => answer[context.recResult[0].utterance].neg!})
                             },
                             {
@@ -301,7 +307,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             },
                             {
                                 target: 'day',
-                                cond: (context) => "title" in (grammar[context.recResult[0].utterance] || {}),
+                                cond: (context) => "title" in (grammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ title: (context) => grammar[context.recResult[0].utterance].title! })
                             },
                             {
@@ -334,7 +340,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             },
                             {
                                 target: 'durance',
-                                cond: (context) => "day" in (grammar[context.recResult[0].utterance] || {}),
+                                cond: (context) => "day" in (grammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ day: (context) => grammar[context.recResult[0].utterance].day! })
                             },
                             {
@@ -367,12 +373,12 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             },
                             {
                                 target: 'creationwholeday',
-                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}),
+                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ pos: (context) => answer[context.recResult[0].utterance].pos! })
                             },
                             {
                                 target: 'time',
-                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {}),
+                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ neg: (context) => answer[context.recResult[0].utterance].neg! })
                             },
                             {
@@ -405,7 +411,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             },
                             {
                                 target: 'creation_with_time',
-                                cond: (context) => "time" in (grammar[context.recResult[0].utterance] || {}),
+                                cond: (context) => "time" in (grammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ time: (context) => grammar[context.recResult[0].utterance].time! })
                             },
                             {
@@ -438,12 +444,12 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             },
                             {
                                 target: 'info',
-                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}),
+                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ pos: (context) => answer[context.recResult[0].utterance].pos! })
                             },
                             {
                                 target: 'regards',
-                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {}),
+                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ neg: (context) => answer[context.recResult[0].utterance].neg! })
                             },
                             {
@@ -521,4 +527,3 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
         },
     },
 })
-
