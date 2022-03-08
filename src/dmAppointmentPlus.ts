@@ -77,6 +77,8 @@ const answer: { [index: string]: { pos?: string, neg?: string, help?: string} } 
     "Sure": { pos: "Yes" },
     "Yes please.": { pos: "Yes" },
     "Help.": { help: "Help" },
+    "I need help.": { help: "Help" },
+    "What do I do?": { help: "Help" },
 }
 
 const menugrammar: { [index: string]: {meet?: string, celeb?: string }} = {
@@ -95,16 +97,11 @@ const confid_threshold = 0.6  // confidence threshold set to 0.6, if below this,
 // maybe look into number on threshold
 
 //const increment = (context: { count: number; }) => context.count + 1;
-
-const reprompting = (context: any) => {
-    return context.counter.length < 3
-}
   
 
 export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
     initial: 'idle',
-    entry: assign({counter: (context) => context.counter = 0}),
-    states: {
+        states: {
         idle: {
             on: {
                 CLICK: 'init'
@@ -142,8 +139,12 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             },
                             {
                                 target: 'mainmenu',
+                                cond: (context) => context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ username: (context) => context.recResult[0].utterance }) 
                             },
+                            {
+                                target: '.nomatch'
+                            }
                             ],
                         TIMEOUT: [
                             {
@@ -164,6 +165,10 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             ask: {
                                 entry: send('LISTEN'),
                             },
+                        nomatch: {
+                            entry: say("Sorry, what did you say your name was?"),
+                            on: { ENDSPEECH: 'ask' }
+                            }
                         }
                     },
                 mainmenu: {
@@ -249,7 +254,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     states: {
                         prompt: {
-                            entry: say("Who are you searching for?"),
+                            entry: [say("Who are you searching for?"), assign({counter: (context) => context.counter + 1})],
                             on: {ENDSPEECH: 'ask'}
                         },
                         ask: {
@@ -320,7 +325,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     states: {
                         prompt: {
-                            entry: say("Do you want to meet them?"),
+                            entry: [say("Do you want to meet them?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
@@ -370,7 +375,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     states: {
                         prompt: {
-                            entry: say("What is it about?"),
+                            entry: [say("What is it about?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
@@ -413,7 +418,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     states: {
                         prompt: {
-                            entry: say("On which day is it?"),
+                            entry: [say("On which day is it?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
@@ -461,7 +466,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     states: {
                         prompt: {
-                            entry: say("Will it take the whole day?"),
+                            entry: [say("Will it take the whole day?"), assign({counter: (context) => context.counter + 1}), ],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
@@ -504,7 +509,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     states: {
                         prompt: {
-                            entry: say("What time is your meeting?"),
+                            entry: [say("What time is your meeting?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
@@ -543,10 +548,11 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     states: {
                         prompt: {
-                            entry: send((context) => ({
+                            entry: [send((context) => ({
                                 type: 'SPEAK',
-                                value: `Do you want me to create a meeting titled ${context.title} on ${context.day}?`
+                                value: `Do you want me to create a meeting titled ${context.title} on ${context.day}?`,
                             })),
+                            assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
@@ -584,10 +590,11 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     states: {
                         prompt: {
-                            entry: send((context) => ({
+                            entry: [send((context) => ({
                                 type: 'SPEAK',
                                 value: `Do you want me to create a meeting titled ${context.title} on ${context.day} at ${context.time}?`
                             })),
+                            assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
