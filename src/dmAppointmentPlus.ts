@@ -97,7 +97,7 @@ const confid_threshold = 0.6  // confidence threshold set to 0.6, if below this,
 // maybe look into number on threshold
 
 //const increment = (context: { count: number; }) => context.count + 1;
-  
+
 
 export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
     initial: 'idle',
@@ -129,7 +129,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     type: 'history',
                 },
                 hello: {
-                    initial: 'prompt',
+                    initial: 'prompt1',
                     entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
@@ -148,18 +148,40 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             ],
                         TIMEOUT: [
                             {
-                                target: '.prompt',
-                                cond: (context) => context.counter < 3,
+                                target: '.prompt1',
+                                cond: (context) => context.counter === 0,
+                            },
+                            {
+                                target: '.prompt2',
+                                cond: (context) => context.counter === 1,
+                            },
+                            {
+                                target: '.prompt3',
+                                cond: (context) => context.counter === 2,
                             },
                             {
                                 target: '#root.dm.init',
-                                cond: (context) => context.counter > 3,
+                                cond: (context) => context.counter === 3,
                             },
                         ],
                         },
                     states: {
-                        prompt: {
-                            entry: [say("What is your username?"), assign({counter: (context) => context.counter +1})],
+                        hist: {
+                            type: 'history',
+                        },
+                        prompt1: {
+                            entry: [say("What is your username?"), 
+                                    assign({counter: (context) => context.counter +1})],
+                            on: { ENDSPEECH: 'ask' }
+                            },
+                        prompt2: {
+                            entry: [say("Please say your username"), 
+                                    assign({counter: (context) => context.counter +1})],
+                            on: { ENDSPEECH: 'ask' }
+                            },
+                        prompt3: {
+                            entry: [say("What should I call you?"), 
+                                    assign({counter: (context) => context.counter +1})],
                             on: { ENDSPEECH: 'ask' }
                             },
                             ask: {
@@ -197,11 +219,11 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         TIMEOUT: [
                             {
                                 target: '.prompt',
-                                cond: (context) => context.counter < 3,
+                                cond: (context) => context.counter === 0,
                             },
                             {
                                 target: '#root.dm.init',
-                                cond: (context) => context.counter > 3,
+                                cond: (context) => context.counter === 3,
                             },
                         ],
                     },
@@ -227,7 +249,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     }
                 },
                 searchceleb: {
-                    initial: 'prompt',
+                    initial: 'prompt1',
                     entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
@@ -243,18 +265,34 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         ],
                         TIMEOUT: [
                             {
-                                target: '.prompt',
-                                cond: (context) => context.counter < 3,
+                                target: '.prompt1',
+                                cond: (context) => context.counter === 0,
+                            },
+                            {
+                                target: '.prompt2',
+                                cond: (context) => context.counter === 1,
+                            },
+                            {
+                                target: '.prompt3',
+                                cond: (context) => context.counter === 2,
                             },
                             {
                                 target: '#root.dm.init',
-                                cond: (context) => context.counter > 3,
+                                cond: (context) => context.counter === 3,
                             },
                         ],
                     },
                     states: {
-                        prompt: {
+                        prompt1: {
                             entry: [say("Who are you searching for?"), assign({counter: (context) => context.counter + 1})],
+                            on: {ENDSPEECH: 'ask'}
+                        },
+                        prompt2: {
+                            entry: [say("Please tell me who you are searching for"), assign({counter: (context) => context.counter + 1})],
+                            on: {ENDSPEECH: 'ask'}
+                        },
+                        prompt3: {
+                            entry: [say("Tell me the name of a celebrity and I will look them up for you"), assign({counter: (context) => context.counter + 1})],
                             on: {ENDSPEECH: 'ask'}
                         },
                         ask: {
@@ -290,7 +328,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     on: { ENDSPEECH: 'mainmenu' }
                 },
                 doyou: {
-                    initial: 'prompt',
+                    initial: 'prompt1',
                     entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
@@ -314,18 +352,34 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         ],
                         TIMEOUT: [
                             {
-                                target: '.prompt',
-                                cond: (context) => context.counter < 3,
+                                target: '.prompt1',
+                                cond: (context) => context.counter === 0,
+                            },
+                            {
+                                target: '.prompt2',
+                                cond: (context) => context.counter === 1,
+                            },
+                            {
+                                target: '.prompt3',
+                                cond: (context) => context.counter === 2,
                             },
                             {
                                 target: '#root.dm.init',
-                                cond: (context) => context.counter > 3,
+                                cond: (context) => context.counter === 3,
                             },
                         ],
                     },
                     states: {
-                        prompt: {
+                        prompt1: {
                             entry: [say("Do you want to meet them?"), assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt2: {
+                            entry: [say("Do you want to meet this celebrity?"), assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt3: {
+                            entry: [say("Do you want to create a meeting with this person?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
@@ -345,7 +399,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     on: { ENDSPEECH: 'regards' }
                 },
                 regards: {
-                    initial: 'prompt',
+                    initial: 'prompt1',
                     entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
@@ -364,18 +418,34 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         ],
                         TIMEOUT: [
                             {
-                                target: '.prompt',
-                                cond: (context) => context.counter < 3,
+                                target: '.prompt1',
+                                cond: (context) => context.counter === 0,
+                            },
+                            {
+                                target: '.prompt2',
+                                cond: (context) => context.counter === 1,
+                            },
+                            {
+                                target: '.prompt3',
+                                cond: (context) => context.counter === 2,
                             },
                             {
                                 target: '#root.dm.init',
-                                cond: (context) => context.counter > 3,
+                                cond: (context) => context.counter === 3,
                             },
                         ],
                     },
                     states: {
-                        prompt: {
+                        prompt1: {
                             entry: [say("What is it about?"), assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt2: {
+                            entry: [say("What is your meeting about?"), assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt3: {
+                            entry: [say("What should your meeting be called?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
@@ -388,7 +458,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     }
                 },
                 day: {
-                    initial: 'prompt',
+                    initial: 'prompt1',
                     entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
@@ -407,18 +477,34 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         ],
                         TIMEOUT: [
                             {
-                                target: '.prompt',
-                                cond: (context) => context.counter < 3,
+                                target: '.prompt1',
+                                cond: (context) => context.counter === 0,
+                            },
+                            {
+                                target: '.prompt2',
+                                cond: (context) => context.counter === 1,
+                            },
+                            {
+                                target: '.prompt3',
+                                cond: (context) => context.counter === 2,
                             },
                             {
                                 target: '#root.dm.init',
-                                cond: (context) => context.counter > 3,
+                                cond: (context) => context.counter === 3,
                             },
                         ],
                     },
                     states: {
-                        prompt: {
+                        prompt1: {
                             entry: [say("On which day is it?"), assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt2: {
+                            entry: [say("On which day will this meeting take place?"), assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt3: {
+                            entry: [say("Please tell me the day of this meeting."), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
@@ -431,7 +517,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     }
                 },
                 durance: {
-                    initial: 'prompt',
+                    initial: 'prompt1',
                     entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
@@ -455,18 +541,34 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         ],
                         TIMEOUT: [
                             {
-                                target: '.prompt',
-                                cond: (context) => context.counter < 3,
+                                target: '.prompt1',
+                                cond: (context) => context.counter === 0,
+                            },
+                            {
+                                target: '.prompt2',
+                                cond: (context) => context.counter === 1,
+                            },
+                            {
+                                target: '.prompt3',
+                                cond: (context) => context.counter === 2,
                             },
                             {
                                 target: '#root.dm.init',
-                                cond: (context) => context.counter > 3,
+                                cond: (context) => context.counter === 3,
                             },
                         ],
                     },
                     states: {
-                        prompt: {
+                        prompt1: {
                             entry: [say("Will it take the whole day?"), assign({counter: (context) => context.counter + 1}), ],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt2: {
+                            entry: [say("Will the meeting take the whole day?"), assign({counter: (context) => context.counter + 1}), ],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt3: {
+                            entry: [say("Will the meeting take the whole day? You can say 'yes' or 'no'."), assign({counter: (context) => context.counter + 1}), ],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
@@ -479,7 +581,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     }
                 },
                 time: {
-                    initial: 'prompt',
+                    initial: 'prompt1',
                     entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
@@ -498,18 +600,34 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         ],
                         TIMEOUT: [
                             {
-                                target: '.prompt',
-                                cond: (context) => context.counter < 3,
+                                target: '.prompt1',
+                                cond: (context) => context.counter === 0,
+                            },
+                            {
+                                target: '.prompt2',
+                                cond: (context) => context.counter === 1,
+                            },
+                            {
+                                target: '.prompt3',
+                                cond: (context) => context.counter === 2,
                             },
                             {
                                 target: '#root.dm.init',
-                                cond: (context) => context.counter > 3,
+                                cond: (context) => context.counter === 3,
                             },
                         ],
                     },
                     states: {
-                        prompt: {
+                        prompt1: {
                             entry: [say("What time is your meeting?"), assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt2: {
+                            entry: [say("What time will this meeting be?"), assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt3: {
+                            entry: [say("At what time will this meeting take place?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
@@ -522,7 +640,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     }
                 },
                 creationwholeday: {
-                    initial: 'prompt',
+                    initial: 'prompt1',
                     entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
@@ -544,10 +662,27 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 target: '.nomatch'
                             }
                         ],
-                        TIMEOUT: '.prompt'
+                        TIMEOUT: [
+                            {
+                                target: '.prompt1',
+                                cond: (context) => context.counter === 0,
+                            },
+                            {
+                                target: '.prompt2',
+                                cond: (context) => context.counter === 1,
+                            },
+                            {
+                                target: '.prompt3',
+                                cond: (context) => context.counter === 2,
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => context.counter === 3,
+                            },
+                        ],
                     },
                     states: {
-                        prompt: {
+                        prompt1: {
                             entry: [send((context) => ({
                                 type: 'SPEAK',
                                 value: `Do you want me to create a meeting titled ${context.title} on ${context.day}?`,
@@ -555,6 +690,22 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
+                        prompt2: {
+                            entry: [send((context) => ({
+                                type: 'SPEAK',
+                                value: `Should I create a meeting called ${context.title} on ${context.day}?`,
+                            })),
+                            assign({counter: (context) => context.counter + 1})],
+                        },
+                        prompt3: {
+                            entry: [send((context) => ({
+                                type: 'SPEAK',
+                                value: `The information I've gotten is a meeting titled ${context.title} on ${context.day}. Should I create
+                                a meeting for that?`,
+                            })),
+                            assign({counter: (context) => context.counter + 1})],
+                        },
+
                         ask: {
                             entry: send('LISTEN'),
                         },
@@ -565,7 +716,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     }
                 },
                 creation_with_time: {
-                    initial: 'prompt',
+                    initial: 'prompt1',
                     on: {
                         RECOGNISED: [
                             {
@@ -586,13 +737,47 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 target: '.nomatch'
                             }
                         ],
-                        TIMEOUT: '.prompt'
+                        TIMEOUT: [
+                            {
+                                target: '.prompt1',
+                                cond: (context) => context.counter === 0,
+                            },
+                            {
+                                target: '.prompt2',
+                                cond: (context) => context.counter === 1,
+                            },
+                            {
+                                target: '.prompt3',
+                                cond: (context) => context.counter === 2,
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => context.counter === 3,
+                            },
+                        ],
                     },
                     states: {
-                        prompt: {
+                        prompt1: {
                             entry: [send((context) => ({
                                 type: 'SPEAK',
                                 value: `Do you want me to create a meeting titled ${context.title} on ${context.day} at ${context.time}?`
+                            })),
+                            assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt2: {
+                            entry: [send((context) => ({
+                                type: 'SPEAK',
+                                value: `Should I create a meeting called ${context.title} on ${context.day} at ${context.time}?`
+                            })),
+                            assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt3: {
+                            entry: [send((context) => ({
+                                type: 'SPEAK',
+                                value: `The information I have is a meeting titled ${context.title} on ${context.day} at ${context.time}
+                                Should I create that meeting for you?`
                             })),
                             assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
