@@ -696,14 +696,15 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 value: `Should I create a meeting called ${context.title} on ${context.day}?`,
                             })),
                             assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
                         },
                         prompt3: {
                             entry: [send((context) => ({
                                 type: 'SPEAK',
-                                value: `The information I've gotten is a meeting titled ${context.title} on ${context.day}. Should I create
-                                a meeting for that?`,
+                                value: `The information I've gotten is a meeting titled ${context.title} on ${context.day}. Should I create a meeting for that?`,
                             })),
                             assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
                         },
 
                         ask: {
@@ -776,8 +777,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         prompt3: {
                             entry: [send((context) => ({
                                 type: 'SPEAK',
-                                value: `The information I have is a meeting titled ${context.title} on ${context.day} at ${context.time}
-                                Should I create that meeting for you?`
+                                value: `The information I have is a meeting titled ${context.title} on ${context.day} at ${context.time}. Should I create that meeting for you?`
                             })),
                             assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
