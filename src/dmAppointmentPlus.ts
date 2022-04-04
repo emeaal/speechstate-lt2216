@@ -1,4 +1,4 @@
-import { MachineConfig, send, Action, assign, Machine } from "xstate";
+import { MachineConfig, send, Action, assign } from "xstate";
 
 function say(text: string): Action<SDSContext, SDSEvent> {
     return send((_context: SDSContext) => ({ type: "SPEAK", value: text }))
@@ -68,10 +68,11 @@ const grammar: { [index: string]: { title?: string, day?: string, time?: string 
 
 const answer: { [index: string]: { pos?: string, neg?: string, help?: string} } = {
     "Yes.": { pos: "Yes" },
+    "Yes": { pos: "Yes" },
     "Okay.": { pos: "Yes" },
     "No.": { neg: "No" },
     "Of course.": { pos: "Yes" },
-    "No way": { neg: "No" },
+    "No way.": { neg: "No" },
     "Absolutely not.": { neg: "No" },
     "Absolutely": { pos: "Yes"},
     "Sure": { pos: "Yes" },
@@ -81,27 +82,34 @@ const answer: { [index: string]: { pos?: string, neg?: string, help?: string} } 
     "What do I do?": { help: "Help" },
 }
 
-const menugrammar: { [index: string]: {meet?: string, celeb?: string, intent?: string }} = {
+const menugrammar: { [index: string]: {meet?: string, celeb?: string, assistant?: string }} = {
     "Create a meeting.": { meet: "Meeting" },
     "I want to create a meeting.": { meet: "Meeting" },
-    "Meet a celebrity.": { celeb: "celebrity" },
+    "Meeting": {meet: "Meeting"},
+    "Meet a celebrity.": { celeb: "Meet a celebrity" },
     "Celebrity.": { celeb: "celebrity" },
-    "Search for someone.": { celeb: "celebrity" },
-    "Search for a celebrity": { celeb: "celebrity" },
-    "Intent.": {intent: "intent" },
+    "Search for someone.": { celeb: "Search for someone" },
+    "Search for a celebrity": { celeb: "Search for a celebrity" },
+    "Assistant.": {assistant: "Assistant"},
+    "Intent.": {assistant: "Assistant"}
 }
 
-const intents: {[index: string]: {intent?: string}} = {
-    "Vaccuum": {intent: "Vaccuum" },
-    "vacuum": {intent: "vacuum"},
-    "Hello.": {intent: "Hello"},
-    "Bye.": {intent: "Bye"},
+const assistant_grammar: {[index: string]: {action?: string}} = {
+    "vacuum": {action: "Vacuum"},
+    "move_to_trasn": {action: "Throw this in the trash"},
+    "give": {action: "Give this"},
+    "turn_on_light": {action: "Turn on the light"},
+    "turn_off_light": {action: "Turn off the light"},
+    "play_music": {action: "Play some music"},
+    "ask_oven_warm": {action: "See if the oven is warm"},
+    "inform_oven_warm": {action: "Say that oven is warm"}
 }
 
 const kbRequest = (text: string) =>
     fetch(new Request(`https://cors.eu.org/https://api.duckduckgo.com/?q=${text}&format=json&skip_disambig=1&kl=us_en`)).then(data => data.json())
 
-const rasaurl = 'https://intentrecog.herokuapp.com/model/parse'
+const rasaurl = 'https://intentrecog.herokuapp.com/model/parse';
+
 const nluRequest = (text: string) =>
   fetch(new Request(rasaurl, {
       method: 'POST',
@@ -109,68 +117,11 @@ const nluRequest = (text: string) =>
   }))
       .then(data => data.json());
 
+const confid_threshold = 0.8  // confidence threshold set to 0.6, if below this, speech wont be recognized
 
-function promptAndask(prompt1: string, prompt2: string, prompt3: string, notmatched: string): MachineConfig<SDSContext, any, SDSEvent> {
-    return ({
-        initial: 'prompt1',
-        entry: assign({counter: (context) => context.counter = 0}),
-        on: {
-            RECOGNISED: [
-                {
-                    target: '#root.dm.getHelp',
-                    cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
-                },
-            ],
-            TIMEOUT: [
-                {
-                    target: '.prompt1',
-                    cond: (context) => context.counter === 0,
-                },
-                {
-                    target: '.prompt2',
-                    cond: (context) => context.counter === 1,
-                },
-                {
-                    target: '.prompt3',
-                    cond: (context) => context.counter === 2,
-                },
-                {
-                    target: '#root.dm.init',
-                    cond: (context) => context.counter === 3,
-                },
-            ],
-        },
-        states: {
-            prompt1: {
-                entry: [say(prompt1), assign({counter: (context) => context.counter +1})],
-                on: { ENDSPEECH: 'ask'}
-            },
-            prompt2: {
-                entry: [say(prompt2), assign({counter: (context) => context.counter +1})],
-                on: {ENDSPEECH: 'ask'}
-            },
-            prompt3: {
-                entry: [say(prompt3), assign({counter: (context) => context.counter +1})],
-                on: { ENDSPEECH: 'ask' }
-            },
-            nomatch: {
-                entry: say(notmatched),
-                on: { ENDSPEECH: 'ask' }
-                },
-            ask: {
-                entry: send('LISTEN'),
-            }
-        },
-    })
-}
-
-
-const confid_threshold = 0.6  // confidence threshold set to 0.6, if below this, speech wont be recognized
-// maybe look into number on threshold
-
-//const increment = (context: { count: number; }) => context.count + 1;
-
-
+const sayConfirm: Action<SDSContext, SDSEvent> = send((context: SDSContext) => ({
+    type: "SPEAK", value: `Did you mean to say ${context.checker}?`
+}))
 
 export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
     initial: 'idle',
@@ -190,47 +141,27 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
             initial: 'helpmessage',
             states: {
                 helpmessage: {
-                    entry: say("This is a help message for those who need help."),
+                    entry: say("Listen to the instructions and make sure to speak clearly."),
                     on: { ENDSPEECH: '#root.dm.createAppointment.hist' } // returns to same state as before help was called
                 }
             }
         },
-        confirmquestion: {
-            initial: 'prompt1',
-        on: {
-            RECOGNISED: [
-                {
-                target: '#root.dm.createAppointment.hist', 
-                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
-                //actions: assign()
-                },
-                {
-                target: '#root.dm.createAppointment.hello',
-                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
-                }
-            ],
+        noMatch: {
+            entry: say("I didn't understand, could you please repeat that?"),
+            on: {ENDSPEECH: '#root.dm.createAppointment.deeperhist'} // returns to listens so user can repeat or rephrase their utterance
         },
-        states: {
-            prompt1: {
-                entry: send((context) => ({
-                    type: 'SPEAK',
-                    value: `Did you mean to say ${context.recResult[0].utterance}?`
-                })),
-                on: { ENDSPEECH: 'ask' },
-            },
-            ask: {
-                entry: send('LISTEN'),
-            },
-        },
-    },
         createAppointment: {
-            initial: 'hello',
+            initial: 'mainmenu',
             states: {
                 hist: {
                     type: 'history',
                 },
+                deeperhist: {
+                    type: 'history',
+                    history: 'deep',
+                },
                 hello: {
-                    initial: 'prompt',
+                    initial: 'prompt1',
                     entry: assign({counter: (context) => context.counter = 0}),
                     on: {
                         RECOGNISED: [
@@ -240,41 +171,54 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             },
                             {
                                 target: 'mainmenu',
-                                cond: (context) => context.counter < 3 && context.recResult[0].confidence > confid_threshold,
-                                actions: assign({ username: (context) => context.recResult[0].utterance })
+                                cond: (context) => context.recResult[0].confidence > confid_threshold,
+                                actions: assign({ username: (context) => context.recResult[0].utterance }) 
                             },
                             {
-                                target: '#root.dm.confirmquestion',
-                                cond: (context) => context.recResult[0].confidence < confid_threshold,
-                                actions: assign({ username: (context) => context.recResult[0].utterance })
+                                target: '#root.dm.noMatch'
                             },
-                            {
-                                target: '.nomatch'
-                            }
                             ],
                         TIMEOUT: [
                             {
-                                target: '.prompt',
-                                cond: (context) => context.counter < 3,
+                                target: '.prompt1',
+                                cond: (context) => context.counter === 0,
+                            },
+                            {
+                                target: '.prompt2',
+                                cond: (context) => context.counter === 1,
+                            },
+                            {
+                                target: '.prompt3',
+                                cond: (context) => context.counter === 2,
                             },
                             {
                                 target: '#root.dm.init',
                                 cond: (context) => context.counter === 3,
-                            }
-                        ]
+                            },
+                        ],
                         },
                     states: {
-                        prompt: {
-                            entry: [say("What is your username?"), assign({counter: (context) => context.counter +1})],
+                        hist: {
+                            type: 'history',
+                        },
+                        prompt1: {
+                            entry: [say("What is your username?"), 
+                                    assign({counter: (context) => context.counter +1})],
                             on: { ENDSPEECH: 'ask' }
                             },
-                            ask: {
+                        prompt2: {
+                            entry: [say("Please say your username"), 
+                                    assign({counter: (context) => context.counter +1})],
+                            on: { ENDSPEECH: 'ask' }
+                            },
+                        prompt3: {
+                            entry: [say("What should I call you?"), 
+                                    assign({counter: (context) => context.counter +1})],
+                            on: { ENDSPEECH: 'ask' }
+                            },
+                        ask: {
                                 entry: send('LISTEN'),
                             },
-                            nomatch: {
-                                entry: say("Sorry, I don't know what it is. Tell me something I know."),
-                                on: { ENDSPEECH: 'ask' }
-                            }
                         }
                     },
                 mainmenu: {
@@ -287,13 +231,14 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
                             },
                             {
-                                target: '#root.dm.confirmquestion',
-                                cond: (context) => context.recResult[0].confidence < confid_threshold,
-                            },
-                            {
                                 target: 'welcome',
                                 cond: (context) => "meet" in (menugrammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ meet: (context) => menugrammar[context.recResult[0].utterance].meet!})
+                            },
+                            {
+                                target: 'confirm_meeting',
+                                cond: (context) => "meet" in (menugrammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence < confid_threshold,
+                                actions: assign({meet: (context) => menugrammar[context.recResult[0].utterance].meet!}) 
                             },
                             {
                                 target: 'searchceleb',
@@ -301,14 +246,24 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 actions: assign({ celeb: (context) => menugrammar[context.recResult[0].utterance].celeb!})
                             },
                             {
-                                target: 'lookforintent',
-                                cond: (context) => "intent" in (menugrammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
-                                actions: assign({ intent: (context) => menugrammar[context.recResult[0].utterance].intent!})
+                                target: 'confirm_search',
+                                cond: (context) => "celeb" in (menugrammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence < confid_threshold,
+                                actions: assign({ celeb: (context) => menugrammar[context.recResult[0].utterance].celeb!})
                             },
                             {
-                                target: '.nomatch'
+                                target: '#root.dm.noMatch'
                             }
                             ],
+                        TIMEOUT: [
+                            {
+                                target: '.prompt',
+                                cond: (context) => context.counter < 3,
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => context.counter === 3,
+                            },
+                        ],
                     },
                     states: {
                         prompt: {
@@ -325,9 +280,61 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         ask: {
                             entry: send('LISTEN'),
                         },
-                        nomatch: {
-                            entry: say("Sorry, I don't know what it is. Tell me something I know."),
-                            on: { ENDSPEECH: 'ask' }
+                    }
+                },
+                confirm_meeting: {
+                    initial: 'ask_confirm',
+                    entry: assign({ checker: (context) => context.meet }),
+                    on: {
+                        RECOGNISED: [
+                            {
+                                target: 'welcome',
+                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.noMatch'
+                            }
+                        ]
+                    },
+                    states: {
+                        ask_confirm: {
+                            entry: sayConfirm,
+                            on: {ENDSPEECH: 'ask'}
+                        },
+                        ask: {
+                            entry: send('LISTEN')
+                        }
+                    }
+                },
+                confirm_search: {
+                    initial: 'ask_confirm',
+                    entry: assign({ checker: (context) => context.celeb }),
+                    on: {
+                        RECOGNISED: [
+                            {
+                                target: 'searchceleb',
+                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.noMatch'
+                            }
+                        ]
+                    },
+                    states: {
+                        ask_confirm: {
+                            entry: sayConfirm,
+                            on: {ENDSPEECH: 'ask'}
+                        },
+                        ask: {
+                            entry: send('LISTEN')
                         }
                     }
                 },
@@ -341,16 +348,17 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
                             },
                             {
-                                target: '#root.dm.confirmquestion',
-                                cond: (context) => context.recResult[0].confidence < confid_threshold,
-                            },
-                            {
-                                target: 'lookupCeleb',
+                                target: 'testermenu',
                                 cond: (context) => context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ celeb: (context) => context.recResult[0].utterance })
                             },
                             {
-                                target: '.nomatch'
+                                target: 'confirm_celeb',
+                                cond: (context) => context.recResult[0].confidence < confid_threshold,
+                                actions: assign({ celeb: (context) => context.recResult[0].utterance })
+                            },
+                            {
+                                target: '#root.dm.noMatch'
                             }
                         ],
                         TIMEOUT: [
@@ -374,27 +382,51 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     states: {
                         prompt1: {
-                            entry: [say("Who are you searching for?"), assign({counter: (context) => context.counter + 1}), ],
-                            on: { ENDSPEECH: 'ask' }
+                            entry: [say("Who are you searching for?"), assign({counter: (context) => context.counter + 1})],
+                            on: {ENDSPEECH: 'ask'}
                         },
                         prompt2: {
-                            entry: [say("Please tell me who you are searching for"), assign({counter: (context) => context.counter + 1}), ],
-                            on: { ENDSPEECH: 'ask' }
+                            entry: [say("Please tell me who you are searching for"), assign({counter: (context) => context.counter + 1})],
+                            on: {ENDSPEECH: 'ask'}
                         },
                         prompt3: {
-                            entry: [say("Tell me the name of a celebrity and I will look them up for you"), assign({counter: (context) => context.counter + 1}), ],
-                            on: { ENDSPEECH: 'ask' }
+                            entry: [say("Tell me the name of a celebrity and I will look them up for you"), assign({counter: (context) => context.counter + 1})],
+                            on: {ENDSPEECH: 'ask'}
                         },
                         ask: {
-                            entry: send('LISTEN'),
-                        },
-                        nomatch: {
-                            entry: say("Sorry, I don't know who that is"),
-                            on: { ENDSPEECH: 'ask' }
+                            entry: send('LISTEN')
                         }
                     }
                 },
-                lookupCeleb: {
+                confirm_celeb: {
+                    initial: 'ask_confirm',
+                    entry: assign({ checker: (context) => context.celeb }),
+                    on: {
+                        RECOGNISED: [
+                            {
+                                target: 'testermenu',
+                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.noMatch'
+                            }
+                        ]
+                    },
+                    states: {
+                        ask_confirm: {
+                            entry: sayConfirm,
+                            on: {ENDSPEECH: 'ask'}
+                        },
+                        ask: {
+                            entry: send('LISTEN')
+                        }
+                    }
+                },
+                testermenu: {
                     invoke: {
                         id: 'duck',
                         src: (context, event) => kbRequest(context.celeb),
@@ -421,96 +453,6 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     })),
                     on: { ENDSPEECH: 'mainmenu' }
                 },
-                do_intent: {
-                    initial: 'prompt1',
-                    entry: assign({counter: (context) => context.counter = 0}),
-                    on: {
-                        RECOGNISED: [
-                            {
-                                target: '#root.dm.getHelp',
-                                cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
-                            },
-                            {
-                                target: '#root.dm.confirmquestion',
-                                cond: (context) => context.recResult[0].confidence < confid_threshold,
-                            },
-                            {
-                                target: 'lookforintent',
-                                cond: (context) => context.recResult[0].confidence > confid_threshold,
-                                actions: assign({ celeb: (context) => context.recResult[0].utterance })
-                            },
-                            {
-                                target: '.nomatch'
-                            }
-                        ],
-                        TIMEOUT: [
-                            {
-                                target: '.prompt1',
-                                cond: (context) => context.counter === 0,
-                            },
-                            {
-                                target: '.prompt2',
-                                cond: (context) => context.counter === 1,
-                            },
-                            {
-                                target: '.prompt3',
-                                cond: (context) => context.counter === 2,
-                            },
-                            {
-                                target: '#root.dm.init',
-                                cond: (context) => context.counter === 3,
-                            },
-                        ],
-                    },
-                    states: {
-                        prompt1: {
-                            entry: [say("What can I help you with?"), assign({counter: (context) => context.counter + 1}), ],
-                            on: { ENDSPEECH: 'ask' }
-                        },
-                        prompt2: {
-                            entry: [say("Please say something I can assist you with"), assign({counter: (context) => context.counter + 1}), ],
-                            on: { ENDSPEECH: 'ask' }
-                        },
-                        prompt3: {
-                            entry: [say("Tell me something I can do for you in your home"), assign({counter: (context) => context.counter + 1}), ],
-                            on: { ENDSPEECH: 'ask' }
-                        },
-                        ask: {
-                            entry: send('LISTEN'),
-                        },
-                        nomatch: {
-                            entry: say("Sorry, I don't know what that is"),
-                            on: { ENDSPEECH: 'ask' }
-                        }
-                    }
-                },
-                lookforintent: {
-                    invoke: {
-                        id: 'IntentRecognizer',
-                        src: (context, event) => nluRequest(context.recResult[0].utterance),
-                        onDone: {
-                            target: 'intentsuccess', //see actions index.tsx
-                            actions: [(context, event) => console.log(context, event), assign({ title: (context) => intents[context.intent].intent! })]
-                                        },
-                        onError: {
-                            target: 'intentfailure',
-                        },
-                    },
-                },
-                intentsuccess: {
-                    entry: send((context) => ({
-                        type: 'SPEAK',
-                        value: `OK, ${context.title} will be started now`
-                    })),
-                    on: { ENDSPEECH: '...init' }
-                },
-                intentfailure: {
-                    entry: send((context) => ({
-                        type: 'SPEAK',
-                        value: `${context.intent} couldn't be done`,
-                    })),
-                    on: { ENDSPEECH: 'mainmenu' }
-                },
                 doyou: {
                     initial: 'prompt1',
                     entry: assign({counter: (context) => context.counter = 0}),
@@ -521,12 +463,13 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
                             },
                             {
-                                target: '#root.dm.confirmquestion',
-                                cond: (context) => context.recResult[0].confidence < confid_threshold,
-                            },
-                            {
                                 target: 'day',
                                 cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
+                                actions: assign({ pos: (context) => answer[context.recResult[0].utterance].pos! })
+                            },
+                            {
+                                target: 'confirm_celebmeet',
+                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence < confid_threshold,
                                 actions: assign({ pos: (context) => answer[context.recResult[0].utterance].pos! })
                             },
                             {
@@ -535,7 +478,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 actions: assign({neg: (context) => answer[context.recResult[0].utterance].neg!})
                             },
                             {
-                                target: '.nomatch'
+                                target: '#root.dm.noMatch'
                             }
                         ],
                         TIMEOUT: [
@@ -559,23 +502,47 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     states: {
                         prompt1: {
-                            entry: [say("Do you want to meet them?"), assign({counter: (context) => context.counter + 1}), ],
+                            entry: [say("Do you want to meet them?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         prompt2: {
-                            entry: [say("Do you want to meet this celebrity?"), assign({counter: (context) => context.counter + 1}), ],
+                            entry: [say("Do you want to meet this celebrity?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         prompt3: {
-                            entry: [say("Do you want to create a meeting with this person?"), assign({counter: (context) => context.counter + 1}), ],
+                            entry: [say("Do you want to create a meeting with this person?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
                             entry: send('LISTEN'),
                         },
-                        nomatch: {
-                            entry: say("Sorry, I don't know what it is. Tell me something I know."),
-                            on: { ENDSPEECH: 'ask' }
+                    }
+                },
+                confirm_celebmeet: {
+                    initial: 'ask_confirm',
+                    entry: assign({ checker: (context) => context.pos }),
+                    on: {
+                        RECOGNISED: [
+                            {
+                                target: 'day',
+                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.noMatch'
+                            }
+                        ]
+                    },
+                    states: {
+                        ask_confirm: {
+                            entry: sayConfirm,
+                            on: {ENDSPEECH: 'ask'}
+                        },
+                        ask: {
+                            entry: send('LISTEN')
                         }
                     }
                 },
@@ -596,16 +563,17 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
                             },
                             {
-                                target: '#root.dm.confirmquestion',
-                                cond: (context) => context.recResult[0].confidence < confid_threshold,
-                            },
-                            {
                                 target: 'day',
                                 cond: (context) => "title" in (grammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ title: (context) => grammar[context.recResult[0].utterance].title! })
                             },
                             {
-                                target: '.nomatch'
+                                target: 'confirm_regard',
+                                cond: (context) => "title" in (grammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence < confid_threshold,
+                                actions: assign({ title: (context) => grammar[context.recResult[0].utterance].title! })
+                            },
+                            {
+                                target: '#root.dm.noMatch'
                             }
                         ],
                         TIMEOUT: [
@@ -629,23 +597,47 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     states: {
                         prompt1: {
-                            entry: [say("What is it about?"), assign({counter: (context) => context.counter + 1}), ],
+                            entry: [say("What is it about?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         prompt2: {
-                            entry: [say("What is your meeting about?"), assign({counter: (context) => context.counter + 1}), ],
+                            entry: [say("What is your meeting about?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         prompt3: {
-                            entry: [say("What should your meeting be called?"), assign({counter: (context) => context.counter + 1}), ],
+                            entry: [say("What should your meeting be called?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
                             entry: send('LISTEN'),
                         },
-                        nomatch: {
-                            entry: say("Sorry, I didn't understand what you said. Try again, please."),
-                            on: { ENDSPEECH: 'ask' }
+                    }
+                },
+                confirm_regard: {
+                    initial: 'ask_confirm',
+                    entry: assign({ checker: (context) => context.title }),
+                    on: {
+                        RECOGNISED: [
+                            {
+                                target: 'day',
+                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.noMatch'
+                            }
+                        ]
+                    },
+                    states: {
+                        ask_confirm: {
+                            entry: sayConfirm,
+                            on: {ENDSPEECH: 'ask'}
+                        },
+                        ask: {
+                            entry: send('LISTEN')
                         }
                     }
                 },
@@ -659,12 +651,13 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
                             },
                             {
-                                target: '#root.dm.confirmquestion',
-                                cond: (context) => context.recResult[0].confidence < confid_threshold,
-                            },
-                            {
                                 target: 'durance',
                                 cond: (context) => "day" in (grammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
+                                actions: assign({ day: (context) => grammar[context.recResult[0].utterance].day! })
+                            },
+                            {
+                                target: 'confirm_day',
+                                cond: (context) => "day" in (grammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence < confid_threshold,
                                 actions: assign({ day: (context) => grammar[context.recResult[0].utterance].day! })
                             },
                             {
@@ -692,23 +685,51 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     },
                     states: {
                         prompt1: {
-                            entry: [say("On which day is it?"), assign({counter: (context) => context.counter + 1}), ],
+                            entry: [say("On which day is it?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         prompt2: {
-                            entry: [say("On which day will this meeting take place?"), assign({counter: (context) => context.counter + 1}), ],
+                            entry: [say("On which day will this meeting take place?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         prompt3: {
-                            entry: [say("Please tell me the day of this meeting"), assign({counter: (context) => context.counter + 1}), ],
+                            entry: [say("Please tell me the day of this meeting."), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask' }
                         },
                         ask: {
                             entry: send('LISTEN'),
                         },
                         nomatch: {
-                            entry: say("Sorry, what did you say?"),
+                            entry: say("Sorry, what day did you say?"),
                             on: { ENDSPEECH: 'ask' }
+                        }
+                    }
+                },
+                confirm_day: {
+                    initial: 'ask_confirm',
+                    entry: assign({ checker: (context) => context.day }),
+                    on: {
+                        RECOGNISED: [
+                            {
+                                target: 'durance',
+                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.noMatch'
+                            }
+                        ]
+                    },
+                    states: {
+                        ask_confirm: {
+                            entry: sayConfirm,
+                            on: {ENDSPEECH: 'ask'}
+                        },
+                        ask: {
+                            entry: send('LISTEN')
                         }
                     }
                 },
@@ -722,10 +743,6 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
                             },
                             {
-                                target: '#root.dm.confirmquestion',
-                                cond: (context) => context.recResult[0].confidence < confid_threshold,
-                            },
-                            {
                                 target: 'creationwholeday',
                                 cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ pos: (context) => answer[context.recResult[0].utterance].pos! })
@@ -736,7 +753,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 actions: assign({ neg: (context) => answer[context.recResult[0].utterance].neg! })
                             },
                             {
-                                target: '.nomatch'
+                                target: '#root.dm.noMatch'
                             }
                         ],
                         TIMEOUT: [
@@ -774,10 +791,6 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         ask: {
                             entry: send('LISTEN'),
                         },
-                        nomatch: {
-                            entry: say("Sorry, I don't know what it is. Tell me something I know."),
-                            on: { ENDSPEECH: 'ask' }
-                        }
                     }
                 },
                 time: {
@@ -790,12 +803,13 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
                             },
                             {
-                                target: '#root.dm.confirmquestion',
-                                cond: (context) => context.recResult[0].confidence < confid_threshold,
-                            },
-                            {
                                 target: 'creation_with_time',
                                 cond: (context) => "time" in (grammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
+                                actions: assign({ time: (context) => grammar[context.recResult[0].utterance].time! })
+                            },
+                            {
+                                target: 'confirm_time',
+                                cond: (context) => "time" in (grammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence < confid_threshold,
                                 actions: assign({ time: (context) => grammar[context.recResult[0].utterance].time! })
                             },
                             {
@@ -843,6 +857,34 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         }
                     }
                 },
+                confirm_time: {
+                    initial: 'ask_confirm',
+                    entry: assign({ checker: (context) => context.time }),
+                    on: {
+                        RECOGNISED: [
+                            {
+                                target: 'creation_with_time',
+                                cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {})
+                            },
+                            {
+                                target: '#root.dm.noMatch'
+                            }
+                        ]
+                    },
+                    states: {
+                        ask_confirm: {
+                            entry: sayConfirm,
+                            on: {ENDSPEECH: 'ask'}
+                        },
+                        ask: {
+                            entry: send('LISTEN')
+                        }
+                    }
+                },
                 creationwholeday: {
                     initial: 'prompt1',
                     entry: assign({counter: (context) => context.counter = 0}),
@@ -851,10 +893,6 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             {
                                 target: '#root.dm.getHelp',
                                 cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
-                            },
-                            {
-                                target: '#root.dm.confirmquestion',
-                                cond: (context) => context.recResult[0].confidence < confid_threshold,
                             },
                             {
                                 target: 'info',
@@ -867,7 +905,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 actions: assign({ neg: (context) => answer[context.recResult[0].utterance].neg! })
                             },
                             {
-                                target: '.nomatch'
+                                target: '#root.dm.noMatch'
                             }
                         ],
                         TIMEOUT: [
@@ -918,10 +956,6 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         ask: {
                             entry: send('LISTEN'),
                         },
-                        nomatch: {
-                            entry: say("Sorry, I don't know what it is. Tell me something I know."),
-                            on: { ENDSPEECH: 'ask' }
-                        }
                     }
                 },
                 creation_with_time: {
@@ -931,10 +965,6 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             {
                                 target: '#root.dm.getHelp',
                                 cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
-                            },
-                            {
-                                target: '#root.dm.confirmquestion',
-                                cond: (context) => context.recResult[0].confidence < confid_threshold,
                             },
                             {
                                 target: 'info',
@@ -947,7 +977,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 actions: assign({ neg: (context) => answer[context.recResult[0].utterance].neg! })
                             },
                             {
-                                target: '.nomatch'
+                                target: '#root.dm.noMatch'
                             }
                         ],
                         TIMEOUT: [
@@ -997,10 +1027,6 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         ask: {
                             entry: send('LISTEN'),
                         },
-                        nomatch: {
-                            entry: say("Sorry, I don't know what it is. Tell me something I know."),
-                            on: { ENDSPEECH: 'ask' }
-                        }
                     }
                 },
                 info: {
