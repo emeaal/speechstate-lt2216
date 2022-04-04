@@ -23,6 +23,7 @@ interface SDSContext {
     voice: SpeechSynthesisVoice;
     ttsUtterance: MySpeechSynthesisUtterance;
     recResult: Hypothesis[];
+    logIntent: Hypothesis[];
     hapticInput: string;
     nluData: any;
     ttsAgenda: string;
@@ -36,9 +37,14 @@ interface SDSContext {
     azureAuthorizationToken: string;
     audioCtx: any;
     snippet: any;
+    word: string;
+    name: any;
 
     pos: string;
     neg: string;
+    help: string;
+    checker: string;
+    assistant: string;
 
     title: any;
     time: string;
@@ -49,6 +55,8 @@ interface SDSContext {
     celeb: string;
     meet: string;
     username: string;
+
+    counter: number;
 }
 
 type SDSEvent =
@@ -64,3 +72,4 @@ type SDSEvent =
     | { type: 'LISTEN' }
     | { type: 'TIMEOUT' }
     | { type: 'SPEAK', value: string };
+
