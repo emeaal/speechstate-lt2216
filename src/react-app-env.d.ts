@@ -57,6 +57,7 @@ interface SDSContext {
     username: string;
 
     counter: number;
+    intent: string;
 }
 
 type SDSEvent =
@@ -72,4 +73,3 @@ type SDSEvent =
     | { type: 'LISTEN' }
     | { type: 'TIMEOUT' }
     | { type: 'SPEAK', value: string };
-
