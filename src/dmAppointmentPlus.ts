@@ -91,18 +91,18 @@ const menugrammar: { [index: string]: {meet?: string, celeb?: string, assistant?
     "Search for someone.": { celeb: "Search for someone" },
     "Search for a celebrity": { celeb: "Search for a celebrity" },
     "Assistant.": {assistant: "Assistant"},
-    "Intent.": {assistant: "Assistant"}
+    "Intent.": {assistant: "Assistant"},
+    "Do intent": {assistant: "Assistant"}
 }
 
-const assistant_grammar: {[index: string]: {action?: string}} = {
-    "vacuum": {action: "Vacuum"},
-    "move_to_trasn": {action: "Throw this in the trash"},
-    "give": {action: "Give this"},
-    "turn_on_light": {action: "Turn on the light"},
-    "turn_off_light": {action: "Turn off the light"},
-    "play_music": {action: "Play some music"},
-    "ask_oven_warm": {action: "See if the oven is warm"},
-    "inform_oven_warm": {action: "Say that oven is warm"}
+const assistant_grammar: {[index: string]: {intent?: string}} = {
+    "Vacuum.": {intent: "Vacuum"},
+    "Move to trash.": {intent: "Throw this in the trash"},
+    "Give.": {intent: "Give this"},
+    "Turn on the light": {intent: "Turn on the light"},
+    "Turn off the light": {intent: "Turn off the light"},
+    "Ask oven warm": {intent: "See if the oven is warm"},
+    "Inform oven warm": {intent: "Say that oven is warm"}
 }
 
 const kbRequest = (text: string) =>
@@ -117,7 +117,7 @@ const nluRequest = (text: string) =>
   }))
       .then(data => data.json());
 
-const confid_threshold = 0.8  // confidence threshold set to 0.6, if below this, speech wont be recognized
+const confid_threshold = 0.6  // confidence threshold set to 0.6, if below this, speech wont be recognized
 
 const sayConfirm: Action<SDSContext, SDSEvent> = send((context: SDSContext) => ({
     type: "SPEAK", value: `Did you mean to say ${context.checker}?`
@@ -148,10 +148,10 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
         },
         noMatch: {
             entry: say("I didn't understand, could you please repeat that?"),
-            on: {ENDSPEECH: '#root.dm.createAppointment.deeperhist'} // returns to listens so user can repeat or rephrase their utterance
+            on: {ENDSPEECH: '#root.dm.createAppointment.deeperhist'} // returns to "listens" so user can repeat or rephrase their utterance
         },
         createAppointment: {
-            initial: 'mainmenu',
+            initial: 'lookup_intent',
             states: {
                 hist: {
                     type: 'history',
@@ -251,13 +251,26 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 actions: assign({ celeb: (context) => menugrammar[context.recResult[0].utterance].celeb!})
                             },
                             {
+                                target: 'lookup_intent',
+                                cond: (context) => "assistant" in (menugrammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
+                                actions: assign({ assistant: (context) => menugrammar[context.recResult[0].utterance].assistant!})
+                            },
+                            {
                                 target: '#root.dm.noMatch'
                             }
                             ],
                         TIMEOUT: [
                             {
                                 target: '.prompt',
-                                cond: (context) => context.counter < 3,
+                                cond: (context) => context.counter === 0,
+                            },
+                            {
+                                target: '.prompt',
+                                cond: (context) => context.counter === 1,
+                            },
+                            {
+                                target: '.question_with_instructions',
+                                cond: (context) => context.counter === 2
                             },
                             {
                                 target: '#root.dm.init',
@@ -275,6 +288,10 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         },
                         question: {
                             entry: [say("What do you want to do?"), assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask'}
+                        },
+                        question_with_instructions: {
+                            entry: [say("You can create a meeting, search for someone or get help from your home assistant bot. What do you want to do?"), assign({counter: (context) => context.counter + 1})],
                             on: { ENDSPEECH: 'ask'}
                         },
                         ask: {
@@ -335,6 +352,94 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         },
                         ask: {
                             entry: send('LISTEN')
+                        }
+                    }
+                },
+                lookup_intent: {
+                    initial: 'prompt1',
+                    entry: assign({counter: (context) => context.counter = 0}),
+                    on: {
+                        RECOGNISED: [
+                            {
+                                target: '#root.dm.getHelp',
+                                cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
+                            },
+                            {
+                                target: 'do_intent',
+                                cond: (context) => "intent" in (assistant_grammar[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
+                                actions: assign({ intent: (context) => assistant_grammar[context.recResult[0].utterance].intent! })
+                            },
+                            {
+                                target: '#root.dm.noMatch'
+                            }
+                        ],
+                        TIMEOUT: [
+                            {
+                                target: '.prompt1',
+                                cond: (context) => context.counter === 0,
+                            },
+                            {
+                                target: '.prompt2',
+                                cond: (context) => context.counter === 1,
+                            },
+                            {
+                                target: '.prompt3',
+                                cond: (context) => context.counter === 2,
+                            },
+                            {
+                                target: '#root.dm.init',
+                                cond: (context) => context.counter === 3,
+                            },
+                        ],
+                    },
+                    states: {
+                        prompt1: {
+                            entry: [say("What can I do for you?"), assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt2: {
+                            entry: [say("What can I help you with?"), assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        prompt3: {
+                            entry: [say("What do you need help with?"), assign({counter: (context) => context.counter + 1})],
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        ask: {
+                            entry: send('LISTEN'),
+                        },
+                    }
+                },
+                do_intent: {
+                    initial: 'findintent',
+                    states: {
+                        findintent: {
+                            invoke: {
+                                id: 'findintent',
+                                src: (context, event) => nluRequest(context.intent),
+                                onDone: {
+                                    target: 'intentsuccess',
+                                    actions: assign({ intent: (context, event) => event.data.intent.name})
+                                },
+                                onError: {
+                                    target: "intentfailure",
+                                    actions: assign({ intent: (context, event) => event.data.intent.name})
+                                }
+                            }
+                        },
+                        intentsuccess: {
+                            entry: send((context) => ({
+                                type: 'SPEAK',
+                                value: `Ok I will ${context.intent}`
+                                })),
+                                on: {ENDSPEECH: '#root.dm.init'}
+                        },
+                        intentfailure: {
+                            entry: send((context) => ({
+                                type: 'SPEAK',
+                                value: `Sorry, I can't ${context.intent}`
+                                })),
+                                on: {ENDSPEECH: '#root.dm.init'}
                         }
                     }
                 },
