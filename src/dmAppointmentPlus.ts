@@ -92,17 +92,21 @@ const menugrammar: { [index: string]: {meet?: string, celeb?: string, assistant?
     "Search for a celebrity": { celeb: "Search for a celebrity" },
     "Assistant.": {assistant: "Assistant"},
     "Intent.": {assistant: "Assistant"},
-    "Do intent": {assistant: "Assistant"}
+    "Do intent.": {assistant: "Assistant"},
+    "Home assistant bot.": {assistant: "Assistant"}
 }
 
 const assistant_grammar: {[index: string]: {intent?: string}} = {
-    "Vacuum.": {intent: "Vacuum"},
+    "Vacuum.": {intent: "vacuum"},
     "Move to trash.": {intent: "Throw this in the trash"},
-    "Give.": {intent: "Give this"},
-    "Turn on the light": {intent: "Turn on the light"},
-    "Turn off the light": {intent: "Turn off the light"},
+    "Give": {intent: "Give this"},
+    "Turn on the light.": {intent: "Turn on the light"},
+    "Turn on lights": {intent: "Turn on the light"},
+    "Turn off the light.": {intent: "Turn off the light"},
+    "Turn off lights.": {intent: "Turn off the light"},
+    "Turn off the lights.": {intent: "Turn of the light"},
     "Ask oven warm": {intent: "See if the oven is warm"},
-    "Inform oven warm": {intent: "Say that oven is warm"}
+    "Inform oven warm.": {intent: "Say that oven is warm"}
 }
 
 const kbRequest = (text: string) =>
@@ -151,7 +155,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
             on: {ENDSPEECH: '#root.dm.createAppointment.deeperhist'} // returns to "listens" so user can repeat or rephrase their utterance
         },
         createAppointment: {
-            initial: 'lookup_intent',
+            initial: 'hello',
             states: {
                 hist: {
                     type: 'history',
@@ -202,7 +206,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                             type: 'history',
                         },
                         prompt1: {
-                            entry: [say("What is your username?"), 
+                            entry: [say("Hello! What is your username?"), 
                                     assign({counter: (context) => context.counter +1})],
                             on: { ENDSPEECH: 'ask' }
                             },
@@ -430,7 +434,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         intentsuccess: {
                             entry: send((context) => ({
                                 type: 'SPEAK',
-                                value: `Ok I will ${context.intent}`
+                                value: `Ok I will ${context.intent}. Please start the app again if you want me to do something else.`
                                 })),
                                 on: {ENDSPEECH: '#root.dm.init'}
                         },
@@ -532,31 +536,27 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     }
                 },
                 testermenu: {
-                    invoke: {
-                        id: 'duck',
-                        src: (context, event) => kbRequest(context.celeb),
-                        onDone: {
-                            target: 'success',
-                            actions: assign({ title: (context, event) => "meeting with " + event.data.Heading, snippet: (context, event) => event.data.AbstractText }),
+                    initial: 'findcelebrity',
+                    states: {
+                        findcelebrity: {
+                            invoke: {
+                                id: 'findcelebrity',
+                                src: (context, event) => kbRequest(context.celeb),
+                                onDone: {
+                                    target: 'success',
+                                    actions: assign({ title: (context, event) => "meeting with " + event.data.Heading, snippet: (context, event) => event.data.AbstractText }),
+                                },
+                                onError: {
+                                    target: '#root.dm.createAppointment.searchceleb'
+                                },
+                            },
                         },
-                        onError: {
-                            target: 'failure',
-                        },
-                    },
-                },
                 success: {
                     entry: send((context) => ({
                         type: 'SPEAK',
                         value: `OK, ${context.snippet}`
                     })),
                     on: { ENDSPEECH: 'doyou' }
-                },
-                failure: {
-                    entry: send((context) => ({
-                        type: 'SPEAK',
-                        value: `${context.celeb} couldn't be found.`,
-                    })),
-                    on: { ENDSPEECH: 'mainmenu' }
                 },
                 doyou: {
                     initial: 'prompt1',
@@ -568,17 +568,17 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                                 cond: (context) => "help" in (answer[context.recResult[0].utterance] || {}),
                             },
                             {
-                                target: 'day',
+                                target: '#root.dm.createAppointment.day',
                                 cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({ pos: (context) => answer[context.recResult[0].utterance].pos! })
                             },
                             {
-                                target: 'confirm_celebmeet',
+                                target: '#root.dm.createAppointment.confirm_celebmeet',
                                 cond: (context) => "pos" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence < confid_threshold,
                                 actions: assign({ pos: (context) => answer[context.recResult[0].utterance].pos! })
                             },
                             {
-                                target: 'mainmenu',
+                                target: '#root.dm.createAppointment.mainmenu',
                                 cond: (context) => "neg" in (answer[context.recResult[0].utterance] || {}) && context.recResult[0].confidence > confid_threshold,
                                 actions: assign({neg: (context) => answer[context.recResult[0].utterance].neg!})
                             },
@@ -623,6 +623,8 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                         },
                     }
                 },
+            },
+        },
                 confirm_celebmeet: {
                     initial: 'ask_confirm',
                     entry: assign({ checker: (context) => context.pos }),
